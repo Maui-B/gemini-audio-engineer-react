@@ -17,16 +17,11 @@ export default function Waveform({ file, onSelectionChange }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
 
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-
   useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [url]);
+    if (!containerRef.current || !file) return;
 
-  useEffect(() => {
-    if (!containerRef.current || !url) return;
+    // 1. Create Object URL locally within the effect
+    const audioUrl = URL.createObjectURL(file);
 
     // Cleanup any previous instance
     if (wsRef.current) {
@@ -35,19 +30,23 @@ export default function Waveform({ file, onSelectionChange }) {
       regionRef.current = null;
     }
 
+    // 2. Create the Regions plugin instance first
+    const wsRegions = RegionsPlugin.create();
+
+    // 3. Create WaveSurfer
     const ws = WaveSurfer.create({
       container: containerRef.current,
       height: 120,
       normalize: true,
-      backend: "WebAudio",
-      plugins: [
-        RegionsPlugin.create(),
-      ],
+      plugins: [wsRegions],
     });
 
     wsRef.current = ws;
 
     ws.on("ready", () => {
+      // Guard: if destroyed in the meantime
+      if (!wsRef.current) return;
+
       setIsReady(true);
       const dur = ws.getDuration();
       setDuration(dur);
@@ -56,11 +55,13 @@ export default function Waveform({ file, onSelectionChange }) {
       const start = 0;
       const end = Math.min(dur, 30);
 
-      const r = ws.addRegion({
+      // 4. Add region via the plugin instance
+      const r = wsRegions.addRegion({
         start,
         end,
         drag: true,
         resize: true,
+        color: "rgba(0, 0, 0, 0.1)", // Optional: better visibility
       });
 
       regionRef.current = r;
@@ -71,7 +72,8 @@ export default function Waveform({ file, onSelectionChange }) {
     ws.on("pause", () => setIsPlaying(false));
     ws.on("finish", () => setIsPlaying(false));
 
-    ws.on("region-updated", (region) => {
+    // 5. Listen to region events on the plugin instance
+    wsRegions.on("region-updated", (region) => {
       onSelectionChange?.({
         startSec: region.start,
         endSec: region.end,
@@ -79,12 +81,23 @@ export default function Waveform({ file, onSelectionChange }) {
       });
     });
 
-    ws.load(url);
+    // Ensure we capture the final state after drag ends
+    wsRegions.on("region-out", (region) => {
+      onSelectionChange?.({
+        startSec: region.start,
+        endSec: region.end,
+        durationSec: ws.getDuration(),
+      });
+    });
+
+    ws.load(audioUrl);
 
     return () => {
-      ws.destroy();
+      // Cleanup: Destroy WS first, then revoke the URL
+      if (ws) ws.destroy();
+      URL.revokeObjectURL(audioUrl);
     };
-  }, [url, onSelectionChange]);
+  }, [file, onSelectionChange]);
 
   const toggle = () => {
     if (!wsRef.current) return;
@@ -95,6 +108,8 @@ export default function Waveform({ file, onSelectionChange }) {
     const ws = wsRef.current;
     const region = regionRef.current;
     if (!ws || !region) return;
+
+    // v7: ws.play(start, end)
     ws.play(region.start, region.end);
   };
 

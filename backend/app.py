@@ -7,7 +7,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from audio_processor import trim_audio_to_temp, generate_mel_spectrogram_png
-from gemini_client import analyze_audio
+from gemini_client import start_audio_chat_session, send_chat_message
 
 app = FastAPI(title="Gemini Audio Engineer API")
 
@@ -60,23 +60,39 @@ def analyze(
     prompt: str = Form(...),
     modelId: str = Form(...),
     temperature: float = Form(0.2),
+    thinkingBudget: int = Form(0),
 ):
     """
-    Trims audio to selection, generates spectrogram, calls Gemini, returns advice + spectrogram.
+    Trims audio, generates spectrogram, starts Chat Session with Gemini.
+    Returns initial advice + session ID.
     """
     original_path = _save_upload_to_temp(file)
     trimmed_path = trim_audio_to_temp(original_path, startSec, endSec, export_format="wav")
     spec_png = generate_mel_spectrogram_png(trimmed_path)
 
-    advice = analyze_audio(
+    session_id, advice = start_audio_chat_session(
         audio_path=trimmed_path,
         spectrogram_png_bytes=spec_png,
         user_prompt=prompt,
         model_id=modelId,
         temperature=float(temperature),
+        thinking_budget=thinkingBudget
     )
 
     return {
+        "sessionId": session_id,
         "advice": advice,
         "spectrogramPngBase64": base64.b64encode(spec_png).decode("utf-8"),
     }
+
+
+@app.post("/api/chat")
+def chat_reply(
+    sessionId: str = Form(...),
+    message: str = Form(...),
+):
+    """
+    Send a follow-up message to an active session.
+    """
+    reply = send_chat_message(sessionId, message)
+    return {"reply": reply}
