@@ -11,19 +11,30 @@ export default function App() {
   const [modelId, setModelId] = useState("gemini-3-pro-preview"); // Default to newer model
   const [temperature, setTemperature] = useState(0.2);
   const [thinkingBudget, setThinkingBudget] = useState(0);
+  const [mode, setMode] = useState("engineer"); // "engineer" or "producer"
 
   // Check if using GPT Audio model (has limitations: no images, no thinking)
   const isGptAudio = modelId.startsWith("gpt-");
 
   const [prompt, setPrompt] = useState("");
 
-  const SUGGESTIONS = [
+  const ENGINEER_SUGGESTIONS = [
     "Check the overall frequency balance.",
     "Are the vocals sitting correctly in the mix?",
     "Evaluate the stereo width and mono compatibility.",
     "Is the low-end (kick/bass) well-defined?",
     "Suggest mastering moves for a commercial polish."
   ];
+
+  const PRODUCER_SUGGESTIONS = [
+    "Suggest additional layers to fill out the arrangement.",
+    "What bass line would complement these chords?",
+    "Recommend melodic counter-parts or harmonies.",
+    "What percussion layers would add energy?",
+    "Suggest synth textures or pad layers for depth."
+  ];
+
+  const SUGGESTIONS = mode === "engineer" ? ENGINEER_SUGGESTIONS : PRODUCER_SUGGESTIONS;
 
   const [spectrogramB64, setSpectrogramB64] = useState("");
 
@@ -98,6 +109,7 @@ export default function App() {
         modelId,
         temperature,
         thinkingBudget,
+        mode,
       });
 
       setSessionId(data.sessionId);
@@ -136,7 +148,6 @@ export default function App() {
           <img src={logoImg} alt="App Logo" className="app-logo" />
           <h1>Mix Assistant AI</h1>
         </div>
-        <p>Professional Grade Audio Engineering & Critical Listening</p>
       </header>
 
       <div className="row">
@@ -184,6 +195,26 @@ export default function App() {
         {/* RIGHT COLUMN: Settings + Chat */}
         <div className="stack">
           <section className="card stack">
+            {/* Mode Toggle */}
+            <div className="row" style={{ gridTemplateColumns: "1fr 1fr", gap: '8px', marginBottom: '12px' }}>
+              <button
+                className={`btn ${mode === "engineer" ? "" : "secondary"}`}
+                onClick={() => !sessionId && setMode("engineer")}
+                disabled={!!sessionId}
+                style={{ opacity: sessionId ? 0.6 : 1 }}
+              >
+                🎛️ Engineer
+              </button>
+              <button
+                className={`btn ${mode === "producer" ? "" : "secondary"}`}
+                onClick={() => !sessionId && setMode("producer")}
+                disabled={!!sessionId}
+                style={{ opacity: sessionId ? 0.6 : 1 }}
+              >
+                🎹 Producer
+              </button>
+            </div>
+
             {/* Compact 3-column settings row */}
             <div className="row" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: '12px' }}>
               <div>
@@ -295,7 +326,7 @@ export default function App() {
               {chatMessages.map((msg, idx) => (
                 <div key={idx} className={`message ${msg.role}`}>
                   <div className="message-label">
-                    {msg.role === "user" ? "Producer" : "Engineer"}
+                    {msg.role === "user" ? "You" : (mode === "engineer" ? "Engineer" : "Producer")}
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
                 </div>

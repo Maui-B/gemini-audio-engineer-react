@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from prompts import get_system_prompt
+
 load_dotenv()
 
 # In-memory storage for active chat sessions
@@ -23,20 +25,6 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-DEFAULT_SYSTEM_INSTRUCTION = """
-You are a world-class Audio Engineer (Mixing & Mastering).
-
-You have been provided with:
-1) An audio file.
-2) A spectrogram image of that audio (look for frequency masking, resonances, noise floor, spectral gaps).
-3) A prompt from the user with the style they are going for and the direction they are looking to go in.
-
-Combine these inputs to answer the user's request.
-
-Be technical, precise, and constructive, providing evidence from the audio file to support your recommendations.
-""".strip()
-
-
 def start_audio_chat_session(
     audio_path: str,
     spectrogram_png_bytes: bytes,
@@ -44,7 +32,7 @@ def start_audio_chat_session(
     model_id: str,
     temperature: float = 0.2,
     thinking_budget: Optional[int] = None,
-    system_instruction: str = DEFAULT_SYSTEM_INSTRUCTION,
+    mode: str = "engineer",
 ) -> Tuple[str, str]:
     """
     Starts a new chat session with the audio context.
@@ -63,7 +51,7 @@ def start_audio_chat_session(
     # Note: 'thinking_config' is strictly for models that support it (e.g. gemini-2.0-flash-thinking-exp)
     # Start with standard config
     config_args = {
-        "system_instruction": system_instruction,
+        "system_instruction": get_system_prompt(mode),
         "temperature": temperature,
     }
     

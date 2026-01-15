@@ -6,6 +6,8 @@ from typing import Dict, Optional, Tuple
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from prompts import get_system_prompt
+
 load_dotenv()
 
 # In-memory storage for active chat sessions
@@ -20,16 +22,6 @@ def _get_client() -> OpenAI:
             "Missing OPENAI_API_KEY. Update backend/.env with your OpenAI API key."
         )
     return OpenAI(api_key=api_key)
-
-
-DEFAULT_SYSTEM_INSTRUCTION = """
-You are a world-class Audio Engineer (Mixing & Mastering).
-
-You have been provided with an audio file, and a prompt from the user with the style they are going for and the direction they want to go in.
-Listen carefully for dynamics, tone, balance, stereo image, and any noise or distortion.
-
-Be technical, precise, and constructive, providing evidence from the audio file to support your recommendations.
-""".strip()
 
 
 def _get_audio_mime_type(audio_path: str) -> str:
@@ -52,7 +44,7 @@ def start_audio_chat_session(
     model_id: str = "gpt-audio",
     temperature: float = 0.2,
     thinking_budget: Optional[int] = None,  # Not used for OpenAI, kept for API compatibility
-    system_instruction: str = DEFAULT_SYSTEM_INSTRUCTION,
+    mode: str = "engineer",
 ) -> Tuple[str, str]:
     """
     Starts a new chat session with audio context using OpenAI.
@@ -69,7 +61,7 @@ def start_audio_chat_session(
 
     # Build message with audio only (gpt-audio does not support images)
     messages = [
-        {"role": "system", "content": system_instruction},
+        {"role": "system", "content": get_system_prompt(mode)},
         {
             "role": "user",
             "content": [

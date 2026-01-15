@@ -71,6 +71,7 @@ def analyze(
     modelId: str = Form(...),
     temperature: float = Form(0.2),
     thinkingBudget: int = Form(0),
+    mode: str = Form("engineer"),
 ):
     """
     Trims audio, generates spectrogram, starts Chat Session with Gemini or OpenAI.
@@ -88,6 +89,7 @@ def analyze(
             user_prompt=prompt,
             model_id=modelId,
             temperature=float(temperature),
+            mode=mode,
         )
         _session_providers[session_id] = "openai"
     else:
@@ -97,7 +99,8 @@ def analyze(
             user_prompt=prompt,
             model_id=modelId,
             temperature=float(temperature),
-            thinking_budget=thinkingBudget
+            thinking_budget=thinkingBudget,
+            mode=mode,
         )
         _session_providers[session_id] = "gemini"
 
